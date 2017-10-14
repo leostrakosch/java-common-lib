@@ -31,6 +31,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.NavigableSet;
 import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.Set;
@@ -584,30 +585,7 @@ public class SkipList<T> implements OrderStatisticSet<T>, Serializable {
 
   @Override
   public SortedSet<T> subSet(T pFromElement, T pToElement) {
-    Preconditions.checkNotNull(pFromElement);
-    Preconditions.checkNotNull(pToElement);
-    SkipList<T> subList = new SkipList<>(comparator);
-
-    int start = rankOf(pFromElement);
-    if (start < 0) {
-      throw new IllegalStateException("From-element doesn't exist in list: " + pFromElement);
-    }
-
-    int end = rankOf(pToElement);
-    if (end < 0) {
-      throw new IllegalStateException("To-element doesn't exist in list: " + pToElement);
-    }
-
-    Node<T> startNode = getNode(start);
-    Node<T> endNode = getNode(end);
-
-    for (Node<T> currNode = startNode; currNode != endNode; ) {
-      boolean existed = subList.add(currNode.getValue());
-      assert !existed;
-      currNode = currNode.getNext(LEVEL_ONE);
-    }
-
-    return subList;
+    return subSet(pFromElement, true, pToElement, false);
   }
 
   @Override
@@ -625,6 +603,77 @@ public class SkipList<T> implements OrderStatisticSet<T>, Serializable {
   @Override
   public Comparator<? super T> comparator() {
     return comparator;
+  }
+
+  @Override
+  public T lower(T pT) {
+    Preconditions.checkNotNull(pT);
+    Node<T> candidate = getClosestLessEqual(head, pT);
+
+    if (candidate != head && candidate.getValue().equals(pT)) {
+      candidate = candidate.getPrevious(LEVEL_ONE);
+    }
+
+    if (candidate != head) {
+      return candidate.getValue();
+    } else {
+      return null;
+    }
+  }
+
+  @Override
+  public T floor(T pT) {
+    Node<T> candidate = getClosestLessEqual(head, pT);
+    if (candidate == head) {
+      return null;
+    } else {
+      return candidate.getValue();
+    }
+  }
+
+  @Override
+  public T ceiling(T pT) {
+    Node<T> candidate = getClosestLessEqual(head, pT);
+
+    if (candidate == head || !candidate.getValue().equals(pT)) {
+      candidate = candidate.getNext(LEVEL_ONE);
+    }
+
+    if (candidate != null && candidate != head) {
+      return candidate.getValue();
+    } else {
+      return null;
+    }
+  }
+
+  @Override
+  public T higher(T pT) {
+    Node<T> candidate = getClosestLessEqual(head ,pT);
+    candidate = candidate.getNext(LEVEL_ONE);
+
+    if (candidate != null && candidate != head) {
+      return candidate.getValue();
+    } else {
+      return null;
+    }
+  }
+
+  @Override
+  public T pollFirst() {
+    if (size > 0) {
+      return removeByRank(0);
+    } else {
+      return null;
+    }
+  }
+
+  @Override
+  public T pollLast() {
+    if (size > 0) {
+      return removeByRank(size - 1);
+    } else {
+      return null;
+    }
   }
 
   @Override
@@ -662,6 +711,67 @@ public class SkipList<T> implements OrderStatisticSet<T>, Serializable {
         }
       }
     };
+  }
+
+  @Override
+  public NavigableSet<T> descendingSet() {
+    return null;
+  }
+
+  @Override
+  public Iterator<T> descendingIterator() {
+    return null;
+  }
+
+  @Override
+  public NavigableSet<T> subSet(
+      T pFromElement, boolean pFromInclusive, T pToElement, boolean pToInclusive) {
+
+    Preconditions.checkNotNull(pFromElement);
+    Preconditions.checkNotNull(pToElement);
+    SkipList<T> subList = new SkipList<>(comparator);
+
+    int start = rankOf(pFromElement);
+    if (start < 0) {
+      throw new IllegalStateException("From-element doesn't exist in list: " + pFromElement);
+    }
+
+    int end = rankOf(pToElement);
+    if (end < 0) {
+      throw new IllegalStateException("To-element doesn't exist in list: " + pToElement);
+    }
+
+    Node<T> startNode;
+    if (pFromInclusive) {
+      startNode = getNode(start);
+    } else {
+      startNode = getNode(start + 1);
+    }
+
+    Node<T> endNode;
+    if (pToInclusive) {
+      endNode = getNode(end);
+    } else {
+      endNode = getNode(end-1);
+    }
+
+    for (Node<T> currNode = startNode; currNode != endNode; ) {
+      boolean existed = subList.add(currNode.getValue());
+      assert !existed;
+      currNode = currNode.getNext(LEVEL_ONE);
+    }
+
+    return subList;
+  }
+
+  @Override
+  public NavigableSet<T> headSet(T pToElement, boolean pInclusive) {
+    return subSet(first(), true, pToElement, pInclusive);
+  }
+
+  @Override
+  public NavigableSet<T> tailSet(T pFromElement, boolean pInclusive) {
+    return subSet(pFromElement, pInclusive, last(), true);
   }
 
   @Override
